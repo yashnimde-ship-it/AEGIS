@@ -1,0 +1,10 @@
+__pycache__
+*.pyc
+.git
+*.db
+aegis.db
+.venv
+venv
+.env
+*.egg-info
+.claude

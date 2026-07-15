@@ -4,6 +4,7 @@ __pycache__/
 *.db
 aegis.db
 .env
+*.env
 .venv/
 venv/
 .DS_Store

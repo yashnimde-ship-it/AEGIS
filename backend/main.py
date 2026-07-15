@@ -1,5 +1,7 @@
+import os
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from sqlalchemy import func, text
 from datetime import datetime, timezone
@@ -168,3 +170,15 @@ def list_alerts(limit: int = 50, db: Session = Depends(get_db)):
 @app.get("/")
 def health():
     return {"status": "ok", "service": "AEGIS Sentinel"}
+
+
+# ---------------------------------------------------------------------------
+# Serve static dashboard — must be mounted AFTER all API routes
+# ---------------------------------------------------------------------------
+
+_dashboard_dir = os.path.join(os.path.dirname(__file__), "dashboard")
+if not os.path.isdir(_dashboard_dir):
+    # Local dev: dashboard/ is a sibling of backend/, not inside it
+    _dashboard_dir = os.path.join(os.path.dirname(__file__), "..", "dashboard")
+if os.path.isdir(_dashboard_dir):
+    app.mount("/dashboard", StaticFiles(directory=_dashboard_dir, html=True), name="dashboard")

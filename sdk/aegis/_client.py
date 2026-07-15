@@ -9,7 +9,8 @@ def _post(url: str, payload: dict) -> None:
     try:
         data = json.dumps(payload).encode()
         req  = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
-        urllib.request.urlopen(req, timeout=1.0)
+        # 5s timeout: handles Neon free-tier cold-start latency (~2-5s on first wake)
+        urllib.request.urlopen(req, timeout=5.0)
     except Exception:
         pass
 
@@ -17,7 +18,8 @@ def _post(url: str, payload: dict) -> None:
 def _get_json(url: str) -> dict | None:
     """Blocking GET that returns parsed JSON, or None on any error."""
     try:
-        with urllib.request.urlopen(url, timeout=1.0) as resp:
+        # 5s timeout: same reason as _post; fail-open (return None) on any error
+        with urllib.request.urlopen(url, timeout=5.0) as resp:
             return json.loads(resp.read())
     except Exception:
         return None
