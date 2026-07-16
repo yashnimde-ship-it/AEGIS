@@ -63,6 +63,10 @@ class AlertOut(BaseModel):
     atlas_suggested_fix: Optional[str] = None
     atlas_matched_id:    Optional[str] = None
     atlas_confidence:    Optional[str] = None
+    veritas_status:      Optional[str] = None
+    veritas_regulations: Optional[str] = None
+    veritas_pii_summary: Optional[str] = None
+    veritas_pii_types:   Optional[str] = None
 
     class Config:
         from_attributes = True

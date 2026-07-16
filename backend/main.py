@@ -1,3 +1,4 @@
+import json
 import os
 import sys
 
@@ -28,7 +29,10 @@ Base.metadata.create_all(bind=engine)
 # Add Atlas columns to the alerts table — idempotent, safe on every restart.
 # create_all does not add columns to existing tables, so we ALTER explicitly.
 with engine.connect() as _conn:
-    for _col in ("atlas_explanation", "atlas_suggested_fix", "atlas_matched_id", "atlas_confidence"):
+    for _col in (
+        "atlas_explanation", "atlas_suggested_fix", "atlas_matched_id", "atlas_confidence",
+        "veritas_status", "veritas_regulations", "veritas_pii_summary", "veritas_pii_types",
+    ):
         _conn.execute(text(f"ALTER TABLE alerts ADD COLUMN IF NOT EXISTS {_col} TEXT"))
     _conn.commit()
 
@@ -178,6 +182,40 @@ def list_alerts(limit: int = 50, db: Session = Depends(get_db)):
         .all()
     )
     return alerts
+
+
+# ---------------------------------------------------------------------------
+# GET /compliance  — account-wide PII / compliance summary (Veritas)
+# ---------------------------------------------------------------------------
+
+@app.get("/compliance")
+def get_compliance(db: Session = Depends(get_db)):
+    alerts = db.query(Alert).filter(Alert.veritas_status.isnot(None)).all()
+
+    by_status: dict[str, int] = {"compliant": 0, "warning": 0, "violation": 0}
+    regs_seen: set[str] = set()
+    last_violation_at = None
+
+    for a in alerts:
+        s = a.veritas_status
+        if s in by_status:
+            by_status[s] += 1
+        if a.veritas_regulations:
+            try:
+                for r in json.loads(a.veritas_regulations):
+                    regs_seen.add(r)
+            except Exception:
+                pass
+        if s == "violation" and a.created_at:
+            if last_violation_at is None or a.created_at > last_violation_at:
+                last_violation_at = a.created_at
+
+    return {
+        "total_alerts_scanned": len(alerts),
+        "by_status": by_status,
+        "regulations_flagged": sorted(regs_seen),
+        "last_violation_at": last_violation_at.isoformat() if last_violation_at else None,
+    }
 
 
 # ---------------------------------------------------------------------------

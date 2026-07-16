@@ -1,3 +1,4 @@
+import json
 from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
@@ -7,13 +8,21 @@ from models import Agent, Alert, RunTotal, Event
 
 
 # ---------------------------------------------------------------------------
-# Atlas import — project root is added to sys.path by main.py at startup
+# Atlas + Veritas lazy imports — project root in sys.path via main.py startup
 # ---------------------------------------------------------------------------
 
 def _try_import_atlas():
     try:
         from atlas.atlas import explain_alert
         return explain_alert
+    except Exception:
+        return None
+
+
+def _try_import_veritas():
+    try:
+        from veritas.veritas import check_compliance
+        return check_compliance
     except Exception:
         return None
 
@@ -43,6 +52,53 @@ def _events_for_agent_hour(db: Session, agent_name: str) -> list[dict]:
         .all()
     )
     return [{"model": e.model, "cost_usd": float(e.cost_usd), "call_count": 1} for e in rows]
+
+
+def _event_texts_for_run(db: Session, run_id: str) -> list[str]:
+    """Return raw_response serialised as strings — used by Veritas for PII scanning."""
+    rows = (
+        db.query(Event)
+        .filter(Event.run_id == run_id)
+        .order_by(Event.created_at.desc())
+        .limit(10)
+        .all()
+    )
+    texts = []
+    for e in rows:
+        if e.raw_response is not None:
+            try:
+                texts.append(
+                    json.dumps(e.raw_response)
+                    if isinstance(e.raw_response, (dict, list))
+                    else str(e.raw_response)
+                )
+            except Exception:
+                pass
+    return texts
+
+
+def _event_texts_for_agent_hour(db: Session, agent_name: str) -> list[str]:
+    """Return raw_response strings for the current hour — used by Veritas on spike alerts."""
+    hour_start = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
+    rows = (
+        db.query(Event)
+        .filter(Event.agent_name == agent_name, Event.created_at >= hour_start)
+        .order_by(Event.created_at.desc())
+        .limit(10)
+        .all()
+    )
+    texts = []
+    for e in rows:
+        if e.raw_response is not None:
+            try:
+                texts.append(
+                    json.dumps(e.raw_response)
+                    if isinstance(e.raw_response, (dict, list))
+                    else str(e.raw_response)
+                )
+            except Exception:
+                pass
+    return texts
 
 
 def _enrich_with_atlas(db: Session, alert: Alert, recent_events: list[dict]) -> None:
@@ -76,6 +132,29 @@ def _enrich_with_atlas(db: Session, alert: Alert, recent_events: list[dict]) -> 
         db.commit()
     except Exception:
         pass  # second safety net — Atlas failure must never crash Sentinel
+
+
+def _enrich_with_veritas(db: Session, alert: Alert, event_texts: list[str]) -> None:
+    """
+    Call Veritas to scan event text for PII and populate compliance fields.
+    Fail-silent: any exception is swallowed — Veritas must never crash Sentinel.
+    Raw PII is never stored; only type, count, and masked sample are persisted.
+    """
+    check_compliance = _try_import_veritas()
+    if check_compliance is None:
+        return
+    try:
+        result = check_compliance(
+            event_texts,
+            {"alert_type": alert.alert_type, "agent_name": alert.agent_name},
+        )
+        alert.veritas_status      = result.get("veritas_status")
+        alert.veritas_regulations = result.get("veritas_regulations")
+        alert.veritas_pii_summary = result.get("veritas_pii_summary")
+        alert.veritas_pii_types   = result.get("veritas_pii_types")
+        db.commit()
+    except Exception:
+        pass  # Veritas failure must never crash Sentinel
 
 
 # ---------------------------------------------------------------------------
@@ -139,6 +218,9 @@ def check_budget(db: Session, run: RunTotal, agent: Agent) -> bool:
 
         recent = _events_for_run(db, run.run_id)
         _enrich_with_atlas(db, alert, recent)
+
+        event_texts = _event_texts_for_run(db, run.run_id)
+        _enrich_with_veritas(db, alert, event_texts)
         return True
     return False
 
@@ -191,6 +273,9 @@ def check_spike(db: Session, agent: Agent):
 
         recent = _events_for_agent_hour(db, agent.name)
         _enrich_with_atlas(db, alert, recent)
+
+        event_texts = _event_texts_for_agent_hour(db, agent.name)
+        _enrich_with_veritas(db, alert, event_texts)
 
 
 def run_sentinel_checks(db: Session, run: RunTotal, agent: Agent):

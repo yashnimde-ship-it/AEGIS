@@ -52,6 +52,11 @@ class Alert(Base):
     atlas_suggested_fix = Column(Text, nullable=True)
     atlas_matched_id   = Column(Text, nullable=True)
     atlas_confidence   = Column(Text, nullable=True)
+    # Veritas engine output — PII compliance verdict (masked findings only, never raw PII)
+    veritas_status      = Column(Text, nullable=True)  # compliant | warning | violation
+    veritas_regulations = Column(Text, nullable=True)  # JSON array e.g. ["DPDPA","EU AI Act"]
+    veritas_pii_summary = Column(Text, nullable=True)
+    veritas_pii_types   = Column(Text, nullable=True)  # JSON of masked findings
 
 
 class RunTotal(Base):
