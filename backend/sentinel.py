@@ -1,8 +1,86 @@
+from datetime import datetime, timezone
+
 from sqlalchemy.orm import Session
 from sqlalchemy import func, text
-from datetime import datetime, timezone
+
 from models import Agent, Alert, RunTotal, Event
 
+
+# ---------------------------------------------------------------------------
+# Atlas import — project root is added to sys.path by main.py at startup
+# ---------------------------------------------------------------------------
+
+def _try_import_atlas():
+    try:
+        from atlas.atlas import explain_alert
+        return explain_alert
+    except Exception:
+        return None
+
+
+# ---------------------------------------------------------------------------
+# Internal helpers
+# ---------------------------------------------------------------------------
+
+def _events_for_run(db: Session, run_id: str) -> list[dict]:
+    rows = (
+        db.query(Event)
+        .filter(Event.run_id == run_id)
+        .order_by(Event.created_at.desc())
+        .limit(10)
+        .all()
+    )
+    return [{"model": e.model, "cost_usd": float(e.cost_usd), "call_count": 1} for e in rows]
+
+
+def _events_for_agent_hour(db: Session, agent_name: str) -> list[dict]:
+    hour_start = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
+    rows = (
+        db.query(Event)
+        .filter(Event.agent_name == agent_name, Event.created_at >= hour_start)
+        .order_by(Event.created_at.desc())
+        .limit(10)
+        .all()
+    )
+    return [{"model": e.model, "cost_usd": float(e.cost_usd), "call_count": 1} for e in rows]
+
+
+def _enrich_with_atlas(db: Session, alert: Alert, recent_events: list[dict]) -> None:
+    """
+    Call Atlas to populate explanation fields on the alert.
+    Fail-silent: any exception is swallowed — Atlas must never crash Sentinel.
+
+    NOTE: This adds ~1s latency to /events when an alert fires (Groq call).
+    The circuit-breaker flag (is_over_budget) is committed BEFORE this runs,
+    so /check is never affected by Atlas latency.
+    """
+    explain_alert = _try_import_atlas()
+    if explain_alert is None:
+        return
+    try:
+        result = explain_alert(
+            {
+                "alert_type": alert.alert_type,
+                "agent_name": alert.agent_name,
+                "severity": alert.severity,
+                "message": alert.message,
+                "current_value": float(alert.current_value or 0),
+                "baseline_value": float(alert.baseline_value or 0),
+            },
+            recent_events,
+        )
+        alert.atlas_explanation = result.get("explanation")
+        alert.atlas_suggested_fix = result.get("suggested_fix")
+        alert.atlas_matched_id = result.get("matched_incident_id")
+        alert.atlas_confidence = result.get("confidence")
+        db.commit()
+    except Exception:
+        pass  # second safety net — Atlas failure must never crash Sentinel
+
+
+# ---------------------------------------------------------------------------
+# Core sentinel logic (unchanged public interface)
+# ---------------------------------------------------------------------------
 
 def get_or_create_agent(db: Session, name: str) -> Agent:
     agent = db.query(Agent).filter(Agent.name == name).first()
@@ -40,7 +118,7 @@ def check_budget(db: Session, run: RunTotal, agent: Agent) -> bool:
     budget = float(agent.budget_per_run_usd)
     if float(run.total_cost_usd) > budget:
         run.is_over_budget = True
-        db.commit()
+        db.commit()  # commit circuit-breaker flag BEFORE Atlas runs
 
         alert = Alert(
             agent_name=agent.name,
@@ -57,6 +135,10 @@ def check_budget(db: Session, run: RunTotal, agent: Agent) -> bool:
         )
         db.add(alert)
         db.commit()
+        db.refresh(alert)
+
+        recent = _events_for_run(db, run.run_id)
+        _enrich_with_atlas(db, alert, recent)
         return True
     return False
 
@@ -71,7 +153,6 @@ def check_spike(db: Session, agent: Agent):
         Event.created_at >= hour_start,
     ).scalar() or 0.0
 
-    # Average hourly cost over the previous 24h (excluding the current hour)
     rows = db.execute(
         text("""
             SELECT COALESCE(SUM(cost_usd), 0) AS hourly
@@ -106,6 +187,10 @@ def check_spike(db: Session, agent: Agent):
         )
         db.add(alert)
         db.commit()
+        db.refresh(alert)
+
+        recent = _events_for_agent_hour(db, agent.name)
+        _enrich_with_atlas(db, alert, recent)
 
 
 def run_sentinel_checks(db: Session, run: RunTotal, agent: Agent):

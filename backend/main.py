@@ -1,4 +1,14 @@
 import os
+import sys
+
+# Make atlas/ importable from both local (CWD=backend/) and Docker (WORKDIR=/app/)
+# Locally:  __file__ is <proj>/backend/main.py → parent is <proj>/
+# Docker:   __file__ is /app/main.py → parent is / (harmless), atlas/ is at /app/atlas/
+_backend_dir = os.path.dirname(os.path.abspath(__file__))
+_project_root = os.path.dirname(_backend_dir)
+if _project_root not in sys.path:
+    sys.path.insert(0, _project_root)
+
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -12,8 +22,15 @@ from models import Agent, Event, Alert, RunTotal
 from schemas import EventIn, BudgetSet, AgentOut, EventOut, AlertOut, CheckOut, EventAck
 from sentinel import get_or_create_agent, upsert_run_total, run_sentinel_checks
 
-# Create all tables on startup
+# Create tables that don't yet exist (new installs / first run)
 Base.metadata.create_all(bind=engine)
+
+# Add Atlas columns to the alerts table — idempotent, safe on every restart.
+# create_all does not add columns to existing tables, so we ALTER explicitly.
+with engine.connect() as _conn:
+    for _col in ("atlas_explanation", "atlas_suggested_fix", "atlas_matched_id", "atlas_confidence"):
+        _conn.execute(text(f"ALTER TABLE alerts ADD COLUMN IF NOT EXISTS {_col} TEXT"))
+    _conn.commit()
 
 app = FastAPI(title="AEGIS Sentinel", version="0.1.0")
 

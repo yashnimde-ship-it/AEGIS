@@ -1,0 +1,282 @@
+[
+  {
+    "id": "cost-spike-model-upgrade",
+    "symptom": "Cost per run jumps 8–15× overnight with no change in user traffic. Token counts per call are similar to before, but the per-token price has increased. The agent's output quality may actually be higher, masking the issue until the billing report arrives.",
+    "category": "cost_spike",
+    "likely_cause": "The model identifier in the agent config was changed — intentionally or by a default being updated on the provider's side — from a smaller model (e.g. gpt-3.5-turbo) to a frontier model (e.g. gpt-4o). Provider-managed 'smart routing' or an A/B experiment can silently swap models without changing the API endpoint.",
+    "typical_fix": "Pin the model name explicitly in the agent config and add an assertion on the returned model field in the API response. Set a cost-per-run budget alert at 2× baseline to catch it early."
+  },
+  {
+    "id": "cost-spike-vision-routing",
+    "symptom": "Costs spike 4–6× on calls that include any file attachment, even plain-text PDFs. Latency also increases by 2–4 seconds per call. Token counts appear normal but the effective cost per thousand tokens matches vision-model pricing rather than text-model pricing.",
+    "category": "cost_spike",
+    "likely_cause": "A preprocessing step is converting every input document to an image (e.g. PDF → PNG via a rendering library) before passing it to the model, routing it through the vision input path even for text-only content. Some SDK versions auto-detect MIME type and upgrade to a vision-capable model automatically.",
+    "typical_fix": "Extract text from PDFs with a parser (pdfminer, pypdf) before sending to the LLM. Log the content-type of every input to the model and alert when image tokens exceed zero for text-only workflows."
+  },
+  {
+    "id": "cost-spike-few-shot-bloat",
+    "symptom": "Input token count is 3–5× higher than expected. Cost increases proportionally. The bloat is consistent across all calls, not tied to user input length. Latency is elevated but the extra latency is linear with the extra tokens, not exponential.",
+    "category": "cost_spike",
+    "likely_cause": "A few-shot example block intended for fine-tuning data was accidentally hard-coded into the system prompt during a refactor. Alternatively, a 'context enrichment' step is appending the full user history or a large knowledge-base excerpt to every call rather than retrieving only relevant chunks.",
+    "typical_fix": "Log and alert on system prompt token count. Set a hard ceiling (e.g. 2 000 tokens for system prompt) and fail loudly if exceeded. Replace static few-shot blocks with dynamic retrieval from a vector store."
+  },
+  {
+    "id": "budget-exceeded-batch-job",
+    "symptom": "A nightly batch job exhausts the agent's daily budget between 02:00 and 03:00, leaving the agent budget-blocked for the rest of the business day. Daytime users see every request rejected. The budget overage is typically 2–4× the intended daily ceiling.",
+    "category": "budget_exceeded",
+    "likely_cause": "The batch job has no per-run budget limit and no concurrency cap. It fans out into hundreds of parallel agent runs simultaneously, each consuming the same budget pool. The daily budget was sized for interactive traffic only, not the batch multiplier.",
+    "typical_fix": "Give the batch job a separate budget identity from interactive agents. Add a per-run cost cap and a concurrency limit (e.g. max 10 parallel runs). Schedule the batch after a nightly budget reset."
+  },
+  {
+    "id": "budget-exceeded-reasoning-chain",
+    "symptom": "A single agent run exceeds the per-run budget by 3–10× on complex queries. Simple queries complete fine. The overages correlate with questions that trigger multi-hop reasoning: each hop spawns a sub-agent call, and costs compound.",
+    "category": "budget_exceeded",
+    "likely_cause": "The planner model generates a reasoning chain with an unbounded number of tool-use steps. There is no maximum-steps guard in the agent loop, so on ambiguous or hard problems the agent will continue calling tools until it either finds an answer or exhausts resources.",
+    "typical_fix": "Enforce a hard maximum step count (e.g. 8 tool calls per run) in the agent loop. Log the step count and cost after each tool use so the circuit breaker fires before the run completes, not after."
+  },
+  {
+    "id": "budget-exceeded-currency-misconfiguration",
+    "symptom": "Budget alerts fire almost immediately on every run, even trivial ones. Reported spend in the monitoring system is consistently 100× or 1 000× higher than the actual API invoice. All agents appear to be massively over budget simultaneously.",
+    "category": "budget_exceeded",
+    "likely_cause": "The cost calculation in the SDK or backend is using token counts as if they are USD values, or the price-per-token constant is set to cost-per-million-tokens without dividing by 1 000 000. A unit mismatch at the cost aggregation layer inflates all readings.",
+    "typical_fix": "Add a unit test that asserts the cost of a known call (e.g. 1 000 input tokens on gpt-4o-mini ≈ $0.00015 USD) matches the expected value within 1%. Validate the cost field against the API invoice for the first week after any SDK update."
+  },
+  {
+    "id": "retry-loop-tool-500",
+    "symptom": "API call count is 8–20× higher than the number of user requests. Latency is very high (30–120 seconds per apparent response). Cost is elevated. Backend logs show repeated identical tool calls within a single run, with no variation in parameters.",
+    "category": "retry_loop",
+    "likely_cause": "An external tool (e.g. a search API, a database lookup) is returning HTTP 500 errors. The agent framework's default retry policy is applying exponential backoff and retrying up to 10 times. Since the tool failure is persistent (not transient), all retries fail, but each attempt still consumes tokens for the tool-call generation step.",
+    "typical_fix": "Distinguish transient errors (503, network timeout) from persistent failures (500 with a deterministic error body) in the retry policy. After 3 failed attempts, surface the tool error to the agent as a recoverable exception so it can choose an alternate path or return a graceful failure."
+  },
+  {
+    "id": "retry-loop-json-parse",
+    "symptom": "The model is called 3–5× for what should be a single structured-output request. Cost per user request is proportionally elevated. Logs show the same prompt submitted repeatedly with a 'your last response was invalid JSON, please try again' suffix appended each time.",
+    "category": "retry_loop",
+    "likely_cause": "The model is occasionally generating JSON with trailing commas, comments, or markdown code fences wrapping the JSON object. The parser rejects these without stripping the fences first, and the retry prompt asking for 'valid JSON' does not prevent the same formatting mistake on the next attempt.",
+    "typical_fix": "Pre-process model output to strip markdown fences and trailing commas before parsing. Use the provider's native structured-output / JSON-mode API parameter, which constrains generation to valid JSON at the token level."
+  },
+  {
+    "id": "retry-loop-schema-rejection",
+    "symptom": "Completion calls cluster in groups of 3–7 with identical system prompts and similar outputs. Pydantic or schema validation errors appear in logs at the same frequency as the clusters. The final response delivered to the user is correct, but 2–6 wasteful LLM calls precede it.",
+    "category": "retry_loop",
+    "likely_cause": "The output schema has a required field that the model consistently omits or names differently (e.g. 'reasoning_steps' vs 'reasoning'). Each validation failure appends the schema error to the next prompt, but the model interprets the new field name inconsistently across regenerations.",
+    "typical_fix": "Use function-calling or tool-use structured outputs rather than free-form JSON + schema validation. If retries are necessary, cap them at 2 and fall back to a simpler schema or a post-processing normalisation step."
+  },
+  {
+    "id": "prompt-injection-user-input",
+    "symptom": "The agent begins performing actions inconsistent with the original user request. It may exfiltrate data to an unexpected destination, ignore safety guardrails, or claim to have a different system prompt. The anomaly starts at a specific user turn containing a long or unusual message.",
+    "category": "prompt_injection",
+    "likely_cause": "User-supplied text containing 'Ignore all previous instructions' or a similar override phrase was concatenated directly into the prompt without sanitization or role boundary enforcement. Because the model treats all text in the user turn with similar weight, the injected instruction competes with — and can override — the system prompt.",
+    "typical_fix": "Wrap user input in a clearly delimited block (XML tags or explicit role markers) and instruct the model in the system prompt that content inside those tags is untrusted user data. Use a secondary guard model to classify whether the agent's planned action matches the original intent."
+  },
+  {
+    "id": "prompt-injection-rag-document",
+    "symptom": "After retrieving and summarizing a third-party document, the agent takes unexpected downstream actions: sending emails, calling external APIs, or changing its output format. The anomalous behaviour is absent when the document is not in the retrieval set.",
+    "category": "prompt_injection",
+    "likely_cause": "A maliciously crafted document in the knowledge base contains embedded instructions (e.g. hidden white text, or text following a fake '--- END DOCUMENT ---' delimiter). When the RAG pipeline injects the retrieved chunk verbatim into the prompt, the embedded instructions execute in the model's context.",
+    "typical_fix": "Sanitize retrieved chunks by stripping unusual formatting and re-rendering them as plaintext. Clearly label retrieved content as 'RETRIEVED DOCUMENT — UNTRUSTED:' in the prompt. Run a post-retrieval anomaly check comparing the agent's planned actions against the user's original intent."
+  },
+  {
+    "id": "prompt-injection-tool-output",
+    "symptom": "After calling a web-browsing or code-execution tool, the agent changes its stated goal or takes actions the user did not request. The tool output log contains a suspicious block of instructional text near the end of a web page or command output.",
+    "category": "prompt_injection",
+    "likely_cause": "A web page visited by the agent contains a prompt injection payload in invisible text or in a robots.txt / meta field the browser tool surfaces as text. When the tool result is appended to the conversation, the injected instructions appear in the assistant context and influence the next generation.",
+    "typical_fix": "Filter tool outputs through an extraction layer that returns only structured data (JSON fields, table rows) rather than raw HTML or full page text. Validate that the agent's next intended action is consistent with the original task before execution."
+  },
+  {
+    "id": "context-overflow-conversation-history",
+    "symptom": "Long-running chat sessions start producing truncated or incoherent responses after 40–60 turns. The model begins 'forgetting' earlier facts from the same session. Occasionally an error is returned indicating the context length limit has been exceeded.",
+    "category": "context_overflow",
+    "likely_cause": "The agent appends every turn — including all tool calls and their full outputs — to the context without any summarization or pruning strategy. In long sessions this accumulates to hundreds of thousands of tokens. Once the context limit is hit, the oldest messages are silently dropped, causing the model to lose crucial earlier context.",
+    "typical_fix": "Implement a sliding window or summarization strategy: after every N turns, compress earlier history into a summary and discard the original messages. Track running context token count and trigger summarization proactively before the limit is reached."
+  },
+  {
+    "id": "context-overflow-document-injection",
+    "symptom": "A specific class of requests (those involving document uploads) consistently causes context-limit errors or dramatically elevated token counts. A 200-page PDF results in a single call consuming 180 000+ input tokens. The same agent handles short documents without issue.",
+    "category": "context_overflow",
+    "likely_cause": "The document preprocessing pipeline extracts all text from the PDF and injects it as a single block into the prompt, regardless of the document's length. There is no chunking or maximum-length guard. The model's context window is filled by one document, leaving no room for the model's response.",
+    "typical_fix": "Chunk documents before ingestion and use semantic retrieval to inject only the most relevant sections. Set a hard cap on the total number of tokens from retrieved content (e.g. 20 000 tokens) and truncate with a notice when exceeded."
+  },
+  {
+    "id": "context-overflow-multi-agent-accumulation",
+    "symptom": "In a multi-agent pipeline, downstream agents receive extremely long inputs — often 10–50× the length of the original user request. Token costs are highest at the final synthesis agent. The intermediate agents appear to work correctly but are passing their full context forward.",
+    "category": "context_overflow",
+    "likely_cause": "Each sub-agent in the pipeline returns its full conversation history (system prompt + all tool calls + reasoning traces) rather than just its final output. The orchestrator naively concatenates these and passes the combined blob to the next agent, causing quadratic token growth as agents accumulate each other's traces.",
+    "typical_fix": "Define explicit output schemas for each agent: return only the final answer and a brief justification, not the full trace. The orchestrator should extract the structured output field rather than forwarding the raw message list."
+  },
+  {
+    "id": "hallucination-api-endpoint",
+    "symptom": "The agent generates code or configuration that references API endpoints, SDK methods, or package names that do not exist. The code looks syntactically correct and plausible. Errors only surface at runtime, not during the agent's own verification step.",
+    "category": "hallucination",
+    "likely_cause": "The model's training data includes older or deprecated versions of the library. The model confidently generates method names from a version it 'remembers' from training, which have since been renamed or removed. The agent has no tool to verify whether the API call actually exists.",
+    "typical_fix": "Inject the relevant library's current API documentation into the context before generating code. Add a post-generation step that runs the code in a sandbox and catches ImportError or AttributeError before returning the result to the user."
+  },
+  {
+    "id": "hallucination-numeric-fabrication",
+    "symptom": "The agent's structured output contains plausible but incorrect numbers: financial figures, dates, statistics, or measurements. The numbers are internally consistent (they 'add up') but do not match the source documents. Spot-checking against ground truth reveals errors in 15–40% of numeric fields.",
+    "category": "hallucination",
+    "likely_cause": "The model is interpolating or averaging numeric values from its training distribution rather than extracting them from the provided document. This is especially common when numbers appear in tables, footnotes, or images (if using vision input). The model 'knows' what a typical value should be and substitutes it when uncertain.",
+    "typical_fix": "Force the model to cite the exact sentence or table cell that supports each number. Run a post-processing step that verifies cited numbers appear verbatim in the source text. Flag any numeric field for which no citation is found."
+  },
+  {
+    "id": "hallucination-citation-fabrication",
+    "symptom": "The agent produces research summaries citing academic papers with realistic-sounding titles, author names, and publication years. A significant fraction of the cited papers (30–70%) cannot be found in any database. The fabricated papers are internally consistent and stylistically match real papers in the field.",
+    "category": "hallucination",
+    "likely_cause": "When asked to provide citations, the model generates plausible-sounding references from its training distribution rather than recalling verified sources. It 'knows' what a citation in the field looks like and pattern-matches to produce one, without distinguishing between recalled and generated content.",
+    "typical_fix": "Prohibit the model from generating citations from memory. Require all citations to be retrieved from a verified database (PubMed, Semantic Scholar, Crossref) via a tool call. Validate every DOI or title before including it in the output."
+  },
+  {
+    "id": "hallucination-subtle-code-bug",
+    "symptom": "Generated code passes the agent's own review and basic unit tests but contains subtle logic errors: off-by-one indexing, incorrect boundary conditions, or wrong aggregation logic. The bugs are not syntactic and do not raise exceptions; they produce wrong results on edge-case inputs.",
+    "category": "hallucination",
+    "likely_cause": "The model's self-review ('does this code look correct?') tends to agree with its own generated output because the same generation produces both the code and the review. The model lacks the ability to actually execute the code mentally across all edge cases and defaults to surface-level pattern matching.",
+    "typical_fix": "Always execute generated code in a sandbox with a suite of property-based or randomized tests, not just the happy path. Treat the model's self-review as a weak signal; actual execution results are the ground truth."
+  },
+  {
+    "id": "rate-limit-burst",
+    "symptom": "A cluster of 429 Too Many Requests errors appears in the logs, lasting 30–120 seconds. During this window all agent calls fail or are delayed. The pattern repeats at predictable intervals corresponding to scheduled job start times or peak traffic hours.",
+    "category": "rate_limit",
+    "likely_cause": "Multiple agent instances or a fan-out step fire simultaneously without any client-side rate limiting. The combined request rate exceeds the organization's RPM (requests per minute) quota. Exponential backoff retries from multiple agents hitting the limit simultaneously can create a 'thundering herd' that prolongs the outage.",
+    "typical_fix": "Implement a token bucket or leaky bucket rate limiter shared across all agent instances (e.g. via Redis). Stagger fan-out starts with jitter. Monitor the 'x-ratelimit-remaining-requests' response header and proactively back off before hitting zero."
+  },
+  {
+    "id": "rate-limit-tpm-long-docs",
+    "symptom": "Rate-limit errors occur sporadically on calls involving large documents, even at low request-per-minute volumes. Short-document requests succeed fine. The errors correlate with input token counts above 50 000. Latency is high on the calls that do succeed.",
+    "category": "rate_limit",
+    "likely_cause": "The organization has a TPM (tokens per minute) quota that is lower than the RPM quota. A single large-document call can consume the entire TPM budget for 10–60 seconds, causing all other agents sharing the same API key to be rate-limited even though the request count is low.",
+    "typical_fix": "Track TPM consumption alongside RPM in the rate-limiter. Assign large-document calls to a dedicated API key with a higher TPM tier, or break large documents into smaller chunks processed sequentially rather than in a single call."
+  },
+  {
+    "id": "rate-limit-shared-key",
+    "symptom": "Rate-limit errors affecting one agent correlate with high-traffic periods of an unrelated agent in the same organization. Reducing traffic to one agent immediately reduces rate-limit errors for others. The organization's API usage dashboard shows a single key consuming all quota.",
+    "category": "rate_limit",
+    "likely_cause": "All agents in the organization share a single API key, so their quotas are pooled. A poorly-behaved or high-volume agent can crowd out all others. There is no per-agent quota accounting, so it is impossible to tell which agent is consuming the most quota.",
+    "typical_fix": "Issue separate API keys per agent or per environment (prod/staging/batch). Set usage limits per key in the provider dashboard. Instrument each agent with its own rate-limit headroom metric so the origin of quota pressure is immediately visible."
+  },
+  {
+    "id": "infinite-loop-react-stuck",
+    "symptom": "A ReAct-style agent consumes CPU and tokens indefinitely without returning. Logs show the same Thought → Action → Observation cycle repeating with minor variations. Cost grows linearly with time until a run-level timeout or budget breaker fires. The agent never emits a Final Answer.",
+    "category": "infinite_loop",
+    "likely_cause": "The agent's stopping condition checks for a literal 'Final Answer:' prefix in the model output, but the model is generating answers in a slightly different format (e.g. 'Final answer:' or 'In conclusion:'). The loop does not detect these variations and continues cycling. The model does not spontaneously re-try a different format after several iterations.",
+    "typical_fix": "Use case-insensitive and fuzzy matching for stopping conditions. Enforce a hard maximum step count (e.g. 10 iterations) as a fail-safe. Log a warning whenever the same tool is called with identical arguments on consecutive steps — this is a reliable early signal of a stuck loop."
+  },
+  {
+    "id": "infinite-loop-planner-executor",
+    "symptom": "A planner–executor architecture generates a plan that it immediately marks as incomplete, re-plans, and cycles. No user-visible output is produced. Token usage spikes immediately upon receiving a certain class of ambiguous task. The loop runs until the per-run budget or step limit is hit.",
+    "category": "infinite_loop",
+    "likely_cause": "The planner model generates a plan and the executor immediately fails on step 1 (e.g. a required tool is unavailable). The planner interprets the failure as a planning error rather than a tool error, regenerates the plan, and the cycle repeats. There is no feedback mechanism to distinguish 'bad plan' from 'unavailable tool'.",
+    "typical_fix": "Separate tool availability errors from execution logic errors in the feedback signal to the planner. If a tool is unavailable, return a structured error that causes the planner to mark the task as infeasible and surface this to the user rather than replanning."
+  },
+  {
+    "id": "infinite-loop-error-spawning",
+    "symptom": "The total number of active agent runs grows rapidly after a backend degradation event. Each failed run spawns a retry run. After the degradation resolves, the queue of retry runs overwhelms the system. Costs are many times normal. Old runs are still in progress when new ones are spawned.",
+    "category": "infinite_loop",
+    "likely_cause": "The error handler catches any exception and unconditionally spawns a new agent run with the same parameters. If the underlying failure is not transient (or if the retry runs themselves fail), the system enters an exponential-growth loop. There is no deduplication check to prevent multiple simultaneous runs of the same task.",
+    "typical_fix": "Limit retries to a maximum of 3, with exponential backoff and jitter. Check whether an identical task is already in the queue before spawning a new run. Route persistent failures to a dead-letter queue for human review rather than automatic retry."
+  },
+  {
+    "id": "token-bloat-history-append",
+    "symptom": "Token count per call increases monotonically over the course of a session, even when user messages are short. By turn 20 the context is 4–5× larger than at turn 1. Cost grows super-linearly. Early-session responses are fast; late-session responses are slow.",
+    "category": "token_bloat",
+    "likely_cause": "The agent appends the full content of every tool call — including large API response payloads — to the message history and passes the entire history on every subsequent call. Tool outputs that return large JSON blobs (e.g. database query results with 500 rows) are included verbatim and never pruned.",
+    "typical_fix": "After each tool call, replace the raw tool output in history with a compact summary or a pointer. Set a max-token budget for the history payload and truncate or summarize oldest entries when the budget is exceeded."
+  },
+  {
+    "id": "token-bloat-raw-html",
+    "symptom": "Web-browsing tool calls produce input-token spikes of 20 000–80 000 tokens per web page fetched, even for pages with minimal visible content. The cost per browsing step is 10–30× the cost of a generation step. Latency for browsing steps is high.",
+    "category": "token_bloat",
+    "likely_cause": "The web-browsing tool is returning raw HTML including all scripts, stylesheets, and navigation markup rather than extracted main-content text. A typical e-commerce or news page can contain 50 000+ characters of boilerplate that is irrelevant to the agent's task but must be processed in the context window.",
+    "typical_fix": "Run the HTML through a content extractor (readability, trafilatura, or BeautifulSoup with a whitelist) before injecting it into the prompt. Return only the main-content text and structured metadata (title, date, author). Cap the extracted text at a token budget before injection."
+  },
+  {
+    "id": "token-bloat-verbose-cot",
+    "symptom": "Every model response is 1 500–3 000 tokens even for simple factual queries. The agent's cost per call is dominated by output tokens. Latency is consistently high. The output contains extensive step-by-step reasoning that the downstream consumer does not use.",
+    "category": "token_bloat",
+    "likely_cause": "The system prompt instructs the model to 'think step by step' and show all reasoning. This prompt was used during development/evaluation to improve accuracy but was never removed for production. Output token cost is typically 3–5× input token cost per thousand tokens, so verbose chain-of-thought is expensive.",
+    "typical_fix": "Use extended thinking or chain-of-thought only for complex reasoning tasks; suppress it for classification, extraction, and simple Q&A via a conditional system prompt. If reasoning traces are needed for debugging, strip them server-side before billing and logging."
+  },
+  {
+    "id": "api-timeout-long-context",
+    "symptom": "Calls with input context above 60 000 tokens time out with a 30-second gateway timeout error. Shorter calls on the same model succeed. The failure is deterministic for long inputs, not flaky. Partial responses are never received — the connection drops before any tokens are generated.",
+    "category": "api_timeout",
+    "likely_cause": "The provider processes long-context requests in a prefill phase before generating any output tokens. For very long inputs this prefill can take 20–40 seconds. A gateway or load balancer sitting in front of the API enforces a fixed read timeout (e.g. 30 seconds) that fires during prefill before any bytes are returned.",
+    "typical_fix": "Switch to a streaming endpoint — the first token typically arrives faster than the full non-streaming response, resetting gateway timeout clocks. Alternatively, reduce context length by summarizing or chunking the input. Set client-side timeout to 90 seconds minimum for long-context calls."
+  },
+  {
+    "id": "api-timeout-cold-start",
+    "symptom": "The first API call of a session after a period of inactivity times out or takes 5–15 seconds to respond. Subsequent calls in the same session are fast (under 1 second). The slow first-call behaviour is reproducible during off-peak hours or after midnight.",
+    "category": "api_timeout",
+    "likely_cause": "The backend serving the model (or a dependency such as the database or vector store) has a cold-start latency from a serverless or auto-scaling deployment. After scaling to zero, the first request must wait for the container or instance to start before the model can process it.",
+    "typical_fix": "Send a low-cost keepalive request (e.g. a minimal health-check prompt with max_tokens=1) every few minutes during expected inactivity periods. For latency-sensitive applications, use a provisioned concurrency or always-on tier even if it costs more."
+  },
+  {
+    "id": "api-timeout-streaming-drop",
+    "symptom": "Streaming responses start arriving normally but the stream cuts off mid-response without an error or a done signal. The client receives a partial response and no exception is raised by the SDK. This occurs on 1–5% of long-form generation calls.",
+    "category": "api_timeout",
+    "likely_cause": "An intermediate proxy or load balancer has a maximum response duration limit that fires partway through a long streaming response. Alternatively, a network path issue (idle connection recycling by a NAT gateway or carrier-grade NAT) drops the long-lived TCP connection. The SDK does not always surface this as an error.",
+    "typical_fix": "Detect stream completion by checking for the provider's '[DONE]' sentinel or by comparing accumulated token count against the expected max_tokens. Implement partial-response recovery by checkpointing the stream offset and resuming on failure."
+  },
+  {
+    "id": "pii-leak-prompt-logging",
+    "symptom": "User-submitted personal data (names, email addresses, phone numbers, financial account numbers) appears in plaintext in application logs, observability dashboards, or third-party analytics tools. The exposure is identified during a log audit or after a data subject access request.",
+    "category": "pii_leak",
+    "likely_cause": "The full prompt — including user-provided input — is logged verbatim at the DEBUG or INFO level for debugging purposes. The logging pipeline ships these logs to a third-party SIEM, observability platform, or data warehouse that lacks appropriate access controls or data residency guarantees.",
+    "typical_fix": "Scrub PII from prompts before logging using a regex or NER-based redaction layer. Log a hash or truncated excerpt instead of the full prompt. Apply log-level controls so DEBUG logs containing prompts are only emitted in local development, not in production."
+  },
+  {
+    "id": "pii-leak-rag-cross-tenant",
+    "symptom": "A user receives information in the agent's response that belongs to another user: names, account details, or private documents. The leaked information was not in the current user's session. The issue is intermittent and harder to reproduce under low concurrency.",
+    "category": "pii_leak",
+    "likely_cause": "The vector store used for RAG is not partitioned by tenant or user ID. A similarity search returns chunks from any user's documents, and the agent surfaces them in its response. Under concurrent load, one user's recently-ingested document appears in another user's retrieval results before namespace isolation takes effect.",
+    "typical_fix": "Always include a tenant_id or user_id metadata filter on every vector store query. Never retrieve documents without a namespace constraint. Test cross-tenant isolation explicitly in the test suite with documents from two different users and verify neither appears in the other's retrieval results."
+  },
+  {
+    "id": "pii-leak-tool-output-trace",
+    "symptom": "Agent execution traces stored for debugging contain raw tool outputs that include sensitive data: Social Security numbers from a form submission, credit card numbers from a payment tool, or medical record IDs. The traces are accessible to engineering staff who do not have clearance for that data.",
+    "category": "pii_leak",
+    "likely_cause": "Tool outputs are stored verbatim in the agent trace without any sanitization step. Tools that interface with payment processors, HR systems, or healthcare APIs return full structured objects that include regulated fields. The trace store has no field-level redaction and is accessible to all engineers via the observability dashboard.",
+    "typical_fix": "Define a whitelist of safe-to-log fields for each tool's output schema. Apply field-level redaction at the trace collection point, not at the display layer. Restrict access to unredacted traces to a need-to-know group and log access to those traces."
+  },
+  {
+    "id": "quality-regression-model-version-swap",
+    "symptom": "The quality of agent outputs drops measurably after a routine deploy with no code changes. Evaluation scores fall by 10–30%. Outputs are shorter, less detailed, and make more formatting errors. The regression affects all agents uniformly.",
+    "category": "quality_regression",
+    "likely_cause": "The provider silently updated the model behind a version alias (e.g. 'gpt-4o' is a moving pointer that changed to a newer but differently-tuned checkpoint). Alternatively, a deploy changed an environment variable that was shadowing the model name, reverting it to a cheaper or older model.",
+    "typical_fix": "Pin to a specific, dated model version (e.g. 'gpt-4o-2024-08-06') rather than a mutable alias. Log the model field from every API response and alert if it differs from the configured model. Run eval benchmarks as part of CI before promoting a new model version to production."
+  },
+  {
+    "id": "quality-regression-system-prompt-truncation",
+    "symptom": "Agent output quality degrades specifically on tasks that rely on instructions given in the second half of the system prompt (persona, formatting rules, output language). Earlier instructions are followed correctly. The regression correlates with sessions that have long user-provided context.",
+    "category": "quality_regression",
+    "likely_cause": "As conversation history grows, the total context length approaches the model's limit. Some agent frameworks truncate the oldest messages first, but others naively trim the system prompt to make room. If the system prompt is truncated past its midpoint, task-specific instructions are lost silently.",
+    "typical_fix": "Never truncate the system prompt; only truncate conversation history. Cache the system prompt token count at startup and reserve that many tokens before allocating history budget. Use the provider's 'system' parameter (separate from the message array) where available, as it is given truncation priority."
+  },
+  {
+    "id": "quality-regression-temperature-drift",
+    "symptom": "Outputs become inconsistent and unpredictable for tasks that previously returned stable, deterministic results. Factual extraction returns different answers on repeated queries. Code generation has higher variance. The issue appeared after a configuration management change.",
+    "category": "quality_regression",
+    "likely_cause": "The temperature parameter was inadvertently raised from 0 (or 0.2) to 0.9 or 1.0 in a config file update. High temperature is appropriate for creative tasks but causes hallucination and inconsistency on factual retrieval, classification, and code generation tasks.",
+    "typical_fix": "Treat temperature as a per-task parameter defined in the task's configuration, not a global setting. Pin temperature to 0 for extraction, classification, and code generation. Add a config validation step that asserts temperature ≤ 0.2 for non-creative task types."
+  },
+  {
+    "id": "tool-failure-expired-credential",
+    "symptom": "A tool that was working correctly begins returning empty results or generic error messages without raising an exception. The agent incorporates the empty result as if it were valid and produces plausible-sounding but incorrect outputs. The failure is silent: no error appears in the agent's response.",
+    "category": "tool_failure",
+    "likely_cause": "An API key or OAuth token used by the tool expired. The tool's wrapper catches the 401 Unauthorized response and returns an empty dict or None rather than raising an exception. The agent framework treats None as a valid (empty) tool result rather than a tool error.",
+    "typical_fix": "Distinguish 'empty but valid' results from 'error' results in every tool's return type. Return a typed ToolError object on credential failures, connection failures, and unexpected HTTP status codes. The agent loop should surface ToolError to the model explicitly so it can choose to abort rather than proceeding with missing data."
+  },
+  {
+    "id": "tool-failure-schema-mismatch",
+    "symptom": "A tool that takes structured parameters consistently receives incorrect values: a 'start_date' field receives an ISO timestamp when it expects a Unix integer, or a required 'user_id' parameter is passed as null. The tool fails on every call. The model-generated tool call arguments look reasonable in isolation but are wrong for the actual schema.",
+    "category": "tool_failure",
+    "likely_cause": "The tool schema registered with the model (the JSON schema in the function definition) does not match the actual implementation. The schema was updated in the code but not in the model's tool-use definition, or vice versa. The model generates arguments that satisfy the schema it was given, which is subtly wrong.",
+    "typical_fix": "Generate tool JSON schemas programmatically from the implementation (e.g. from Pydantic models or TypeScript types) rather than maintaining them manually. Add a schema validation test that calls each tool with the model-generated arguments from a canonical prompt and asserts no validation errors."
+  },
+  {
+    "id": "tool-failure-race-condition",
+    "symptom": "Agents that call multiple tools in parallel occasionally return inconsistent results: a read tool sees a stale value that a concurrent write tool has already updated, or two write tools operate on the same resource simultaneously and the second overwrites the first. The issue is non-deterministic and harder to reproduce under low concurrency.",
+    "category": "tool_failure",
+    "likely_cause": "The agent framework parallelizes independent tool calls for latency reduction without any locking or ordering guarantee. Two tools that appear independent (e.g. 'search contacts' and 'update contact') may operate on the same underlying record. There is no optimistic locking or transaction boundary around the parallel tool group.",
+    "typical_fix": "Identify tools that share mutable state and mark them as sequential rather than parallel in the tool execution graph. Use database transactions or versioned writes (optimistic locking with ETags or version fields) for tools that modify shared resources. Add integration tests that exercise concurrent tool execution."
+  }
+]

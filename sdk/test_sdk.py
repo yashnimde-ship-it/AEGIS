@@ -25,7 +25,7 @@ class FakeResponse:
 
 aegis.init(
     agent_name="demo-agent",
-    api_url="http://127.0.0.1:8000",
+    api_url="https://aegis-wg8k.onrender.com",
     budget_per_run=0.004,  # call 1=$0.0025 (ok), call 2=$0.005 (crosses $0.004), call 3=blocked
 )
 

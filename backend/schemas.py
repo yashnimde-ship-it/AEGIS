@@ -50,15 +50,19 @@ class EventOut(BaseModel):
 
 
 class AlertOut(BaseModel):
-    id:             int
-    agent_name:     str
-    run_id:         Optional[str]
-    alert_type:     str
-    severity:       str
-    message:        str
-    current_value:  Optional[float]
-    baseline_value: Optional[float]
-    created_at:     datetime
+    id:                  int
+    agent_name:          str
+    run_id:              Optional[str]
+    alert_type:          str
+    severity:            str
+    message:             str
+    current_value:       Optional[float]
+    baseline_value:      Optional[float]
+    created_at:          datetime
+    atlas_explanation:   Optional[str] = None
+    atlas_suggested_fix: Optional[str] = None
+    atlas_matched_id:    Optional[str] = None
+    atlas_confidence:    Optional[str] = None
 
     class Config:
         from_attributes = True

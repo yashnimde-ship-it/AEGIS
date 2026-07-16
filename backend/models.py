@@ -47,6 +47,11 @@ class Alert(Base):
     current_value  = Column(Numeric(12, 6))
     baseline_value = Column(Numeric(12, 6))
     created_at     = Column(DateTime(timezone=True), server_default=func.now())
+    # Atlas engine output — populated asynchronously after alert creation
+    atlas_explanation  = Column(Text, nullable=True)
+    atlas_suggested_fix = Column(Text, nullable=True)
+    atlas_matched_id   = Column(Text, nullable=True)
+    atlas_confidence   = Column(Text, nullable=True)
 
 
 class RunTotal(Base):
