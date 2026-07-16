@@ -1188,6 +1188,105 @@ body {
   line-height: 1.5;
 }
 
+/* ── Veritas Compliance Block ── */
+.veritas-block {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 200, 87, 0.03);
+  border: 1px solid rgba(255, 200, 87, 0.1);
+  border-left: 2px solid rgba(255, 200, 87, 0.30);
+}
+
+.veritas-block.veritas-violation {
+  background: rgba(255, 90, 118, 0.05);
+  border-color: rgba(255, 90, 118, 0.20);
+  border-left: 3px solid rgba(255, 90, 118, 0.65);
+  box-shadow: inset 0 0 14px rgba(255, 90, 118, 0.03);
+}
+
+.veritas-block.veritas-warning {
+  background: rgba(255, 200, 87, 0.04);
+  border-color: rgba(255, 200, 87, 0.18);
+  border-left: 2px solid rgba(255, 200, 87, 0.50);
+}
+
+.veritas-block.veritas-compliant {
+  background: rgba(0, 245, 160, 0.03);
+  border-color: rgba(0, 245, 160, 0.10);
+  border-left: 2px solid rgba(0, 245, 160, 0.30);
+}
+
+.veritas-header {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+
+.veritas-label {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--warning-amber);
+  opacity: 0.80;
+}
+
+.veritas-status-badge {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: var(--radius-capsule);
+}
+
+.veritas-badge-violation { background: var(--danger-red-soft);      color: var(--danger-red);      }
+.veritas-badge-warning   { background: var(--warning-amber-soft);    color: var(--warning-amber);   }
+.veritas-badge-compliant { background: var(--success-emerald-soft);  color: var(--success-emerald); }
+
+.veritas-reg-tag {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-dark);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.veritas-summary {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-bottom: 4px;
+}
+
+.veritas-pii-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 5px;
+  padding-top: 5px;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.veritas-pii-pill {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 2px 8px;
+  border-radius: var(--radius-capsule);
+  background: rgba(255, 200, 87, 0.08);
+  color: var(--warning-amber);
+  border: 1px solid rgba(255, 200, 87, 0.20);
+}
+
 /* ── Modal (Floating Inspector Window) ── */
 .modal-overlay {
   position: fixed;

@@ -388,6 +388,48 @@ function buildAtlasHTML(al) {
     </div>`;
 }
 
+function isVeritasAbsent(status) {
+  return !status;
+}
+
+function buildVeritasHTML(al) {
+  if (isVeritasAbsent(al.veritas_status)) return "";
+
+  const status = al.veritas_status;
+
+  let regs = [];
+  if (al.veritas_regulations) {
+    try { regs = JSON.parse(al.veritas_regulations); } catch {}
+  }
+
+  let piiTypes = [];
+  if (al.veritas_pii_types) {
+    try { piiTypes = JSON.parse(al.veritas_pii_types); } catch {}
+  }
+
+  const statusIcons = { violation: "✕", warning: "⚠", compliant: "✓" };
+  const statusIcon  = statusIcons[status] || "·";
+
+  const regTags = regs.map(r =>
+    `<span class="veritas-reg-tag">${r}</span>`
+  ).join("");
+
+  const piiPills = piiTypes.map(p =>
+    `<span class="veritas-pii-pill">${p.type.toUpperCase()} ×${p.count} · ${p.sample_masked}</span>`
+  ).join("");
+
+  return `
+    <div class="veritas-block veritas-${status}">
+      <div class="veritas-header">
+        <span class="veritas-label">⚖ Veritas</span>
+        <span class="veritas-status-badge veritas-badge-${status}">${statusIcon} ${status.toUpperCase()}</span>
+        ${regTags}
+      </div>
+      ${al.veritas_pii_summary ? `<p class="veritas-summary">${al.veritas_pii_summary}</p>` : ""}
+      ${piiPills ? `<div class="veritas-pii-row">${piiPills}</div>` : ""}
+    </div>`;
+}
+
 function buildAlertEl(al) {
   const sev       = al.severity.toLowerCase();
   const typeLabel = al.alert_type === "budget_exceeded" ? "Budget Exceeded" : "Cost Spike";
@@ -407,7 +449,8 @@ function buildAlertEl(al) {
       <div class="alert-agent">${al.agent_name}</div>
     </div>
     <div class="alert-msg">${al.message}</div>
-    ${buildAtlasHTML(al)}`;
+    ${buildAtlasHTML(al)}
+    ${buildVeritasHTML(al)}`;
   return el;
 }
 
@@ -451,6 +494,15 @@ function renderAlerts() {
       if (atlasHTML) {
         const msgEl = el.querySelector(".alert-msg");
         if (msgEl) msgEl.insertAdjacentHTML("afterend", atlasHTML);
+      }
+    }
+
+    // Patch Veritas block if Veritas data arrived after the initial render
+    if (!el.querySelector(".veritas-block") && !isVeritasAbsent(al.veritas_status)) {
+      const veritasHTML = buildVeritasHTML(al);
+      if (veritasHTML) {
+        const insertAfter = el.querySelector(".atlas-block") || el.querySelector(".alert-msg");
+        if (insertAfter) insertAfter.insertAdjacentHTML("afterend", veritasHTML);
       }
     }
   });
