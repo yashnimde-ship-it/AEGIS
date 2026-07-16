@@ -1117,6 +1117,77 @@ body {
   word-break: break-word;
 }
 
+/* ── Atlas Explanation Block ── */
+.atlas-block {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: rgba(77, 216, 255, 0.04);
+  border: 1px solid rgba(77, 216, 255, 0.1);
+  border-left: 2px solid rgba(77, 216, 255, 0.28);
+}
+
+.atlas-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.atlas-label {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--primary-cyan);
+  opacity: 0.75;
+}
+
+.atlas-conf {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: var(--radius-capsule);
+}
+
+.atlas-conf-high   { background: var(--success-emerald-soft); color: var(--success-emerald); }
+.atlas-conf-medium { background: var(--warning-amber-soft);   color: var(--warning-amber);   }
+.atlas-conf-low    { background: rgba(90, 106, 128, 0.18);    color: var(--text-dark);       }
+
+.atlas-explanation {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.atlas-fix {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin-top: 7px;
+  padding-top: 7px;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.atlas-fix-label {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--success-emerald);
+  opacity: 0.85;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.atlas-fix-text {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
 /* ── Modal (Floating Inspector Window) ── */
 .modal-overlay {
   position: fixed;

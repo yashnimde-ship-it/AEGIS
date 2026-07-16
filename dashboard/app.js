@@ -368,6 +368,26 @@ function renderAgents() {
 
 // ── Alerts feed ─────────────────────────────────────────────────────────────
 
+function isAtlasUnavailable(explanation) {
+  return !explanation || explanation === "Atlas unavailable — explanation could not be generated.";
+}
+
+function buildAtlasHTML(al) {
+  if (isAtlasUnavailable(al.atlas_explanation)) return "";
+  const conf = al.atlas_confidence || "low";
+  const fix  = al.atlas_suggested_fix && al.atlas_suggested_fix !== "null"
+    ? al.atlas_suggested_fix : null;
+  return `
+    <div class="atlas-block">
+      <div class="atlas-header">
+        <span class="atlas-label">⬡ Atlas</span>
+        <span class="atlas-conf atlas-conf-${conf}">${conf}</span>
+      </div>
+      <p class="atlas-explanation">${al.atlas_explanation}</p>
+      ${fix ? `<div class="atlas-fix"><span class="atlas-fix-label">Fix</span><span class="atlas-fix-text">${fix}</span></div>` : ""}
+    </div>`;
+}
+
 function buildAlertEl(al) {
   const sev       = al.severity.toLowerCase();
   const typeLabel = al.alert_type === "budget_exceeded" ? "Budget Exceeded" : "Cost Spike";
@@ -386,7 +406,8 @@ function buildAlertEl(al) {
       <i data-lucide="${iconName}" class="alert-agent-icon"></i>
       <div class="alert-agent">${al.agent_name}</div>
     </div>
-    <div class="alert-msg">${al.message}</div>`;
+    <div class="alert-msg">${al.message}</div>
+    ${buildAtlasHTML(al)}`;
   return el;
 }
 
@@ -417,10 +438,21 @@ function renderAlerts() {
   });
 
   list.querySelectorAll("[data-alert-id]").forEach(el => {
-    const id  = Number(el.dataset.alertId);
-    const al  = state.alerts.find(a => a.id === id);
+    const id = Number(el.dataset.alertId);
+    const al = state.alerts.find(a => a.id === id);
+    if (!al) return;
+
     const lbl = el.querySelector(".alert-time");
-    if (al && lbl) lbl.textContent = timeAgo(al.created_at);
+    if (lbl) lbl.textContent = timeAgo(al.created_at);
+
+    // Patch Atlas block if Atlas data arrived after the initial render
+    if (!el.querySelector(".atlas-block") && !isAtlasUnavailable(al.atlas_explanation)) {
+      const atlasHTML = buildAtlasHTML(al);
+      if (atlasHTML) {
+        const msgEl = el.querySelector(".alert-msg");
+        if (msgEl) msgEl.insertAdjacentHTML("afterend", atlasHTML);
+      }
+    }
   });
 }
 
