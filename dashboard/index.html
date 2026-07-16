@@ -211,6 +211,74 @@
 
       </div>
 
+      <!-- ── Helm: Cost Intelligence Panel ── -->
+      <div class="section-container">
+        <div class="section-title-bar">
+          <div class="section-heading">
+            <span class="heading-dot helm-heading-dot"></span>
+            <span>COST INTELLIGENCE</span>
+          </div>
+          <span class="section-description"><i data-lucide="compass"></i> Helm engine · Real AI spend · Rules-based, no LLM</span>
+        </div>
+
+        <!-- Top row: Real AI spend (left) + Illustrative cloud infra (right) -->
+        <div class="helm-top-row">
+
+          <!-- AI Spend Panel -->
+          <div class="glass-panel helm-spend-panel">
+            <div class="panel-header-bar">
+              <span class="panel-heading"><span class="heading-dot"></span><span>AI Spend</span></span>
+              <span class="helm-real-badge">⬤ Real Data</span>
+            </div>
+            <div class="helm-kpis">
+              <div class="helm-kpi"><span class="helm-kpi-label">All-Time</span><span class="helm-kpi-value" id="helm-total-all">—</span></div>
+              <div class="helm-kpi"><span class="helm-kpi-label">Today</span><span class="helm-kpi-value" id="helm-total-today">—</span></div>
+              <div class="helm-kpi"><span class="helm-kpi-label">Total Calls</span><span class="helm-kpi-value" id="helm-total-calls">—</span></div>
+              <div class="helm-kpi"><span class="helm-kpi-label">Calls Today</span><span class="helm-kpi-value" id="helm-calls-today">—</span></div>
+            </div>
+            <p class="helm-sub-heading">By Agent</p>
+            <div id="helm-by-agent" class="helm-table"></div>
+            <p class="helm-sub-heading helm-sub-heading-gap">By Model</p>
+            <div id="helm-by-model" class="helm-table"></div>
+          </div>
+
+          <!-- Cloud Infra Cost Panel (Illustrative) -->
+          <div class="glass-panel helm-cloud-panel">
+            <div class="panel-header-bar">
+              <span class="panel-heading"><span class="heading-dot"></span><span>Cloud Infra Cost</span></span>
+              <span class="helm-illustrative-badge">⚠ Illustrative</span>
+            </div>
+            <p class="helm-illustrative-note">Representative production-scale estimates — not real billing data.</p>
+            <div id="helm-cloud-table" class="helm-cloud-table"></div>
+            <div class="helm-cloud-total-row" id="helm-cloud-total"></div>
+          </div>
+
+        </div>
+
+        <!-- Bottom row: Alert tracking (left) + Recommendations (right) -->
+        <div class="helm-bottom-row">
+
+          <!-- Cost Alert Tracking -->
+          <div class="glass-panel">
+            <div class="panel-header-bar">
+              <span class="panel-heading"><span class="heading-dot"></span><span>Alert Tracking</span></span>
+              <span class="section-description">Cost driver attribution</span>
+            </div>
+            <div id="helm-cost-alerts"></div>
+          </div>
+
+          <!-- Optimization Recommendations -->
+          <div class="glass-panel">
+            <div class="panel-header-bar">
+              <span class="panel-heading"><span class="heading-dot"></span><span>Optimization Recommendations</span></span>
+              <span class="section-description">Rules-based · not generated</span>
+            </div>
+            <div id="helm-recommendations"></div>
+          </div>
+
+        </div>
+      </div>
+
     </main>
   </div>
 

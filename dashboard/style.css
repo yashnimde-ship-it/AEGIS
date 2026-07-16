@@ -1595,6 +1595,396 @@ body {
   font-family: var(--font-mono);
 }
 
+/* ── Helm: Cost Intelligence ── */
+
+.helm-heading-dot {
+  background: var(--warning-amber);
+  box-shadow: 0 0 6px var(--warning-amber-glow);
+}
+
+.helm-real-badge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: var(--radius-capsule);
+  color: var(--success-emerald);
+  background: rgba(0, 245, 160, 0.08);
+  border: 1px solid rgba(0, 245, 160, 0.2);
+  letter-spacing: 0.04em;
+}
+
+/* Amber illustrative badge — must be visually prominent */
+.helm-illustrative-badge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: var(--radius-capsule);
+  color: var(--warning-amber);
+  background: rgba(255, 200, 87, 0.12);
+  border: 1px solid rgba(255, 200, 87, 0.35);
+  letter-spacing: 0.04em;
+  box-shadow: 0 0 10px rgba(255, 200, 87, 0.12);
+}
+
+.helm-illustrative-note {
+  font-size: 11px;
+  color: var(--text-dark);
+  font-style: italic;
+  margin: 6px 0 16px;
+  padding: 7px 12px;
+  background: rgba(255, 200, 87, 0.04);
+  border-left: 2px solid rgba(255, 200, 87, 0.28);
+  border-radius: 0 4px 4px 0;
+}
+
+/* Layout rows */
+.helm-top-row {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: var(--gap-sections);
+}
+
+.helm-bottom-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--gap-sections);
+}
+
+/* KPI headline stats */
+.helm-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin: 12px 0 20px;
+}
+
+.helm-kpi {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.helm-kpi-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dark);
+}
+
+.helm-kpi-value {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.helm-sub-heading {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-dark);
+  margin-bottom: 8px;
+}
+
+.helm-sub-heading-gap {
+  margin-top: 16px;
+}
+
+/* By-agent / by-model tables */
+.helm-table {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.helm-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.helm-row-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.helm-model-name {
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.helm-row-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.helm-row-cost {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--warning-amber);
+}
+
+.helm-row-sub {
+  font-size: 10px;
+  color: var(--text-dark);
+  font-family: var(--font-mono);
+}
+
+.helm-share-bar {
+  width: 100%;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 1px;
+  margin-top: 4px;
+}
+
+.helm-share-fill {
+  height: 100%;
+  background: var(--warning-amber);
+  border-radius: 1px;
+  opacity: 0.45;
+  transition: width 0.6s ease;
+}
+
+/* Cloud infra table */
+.helm-cloud-table {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.helm-cloud-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 200, 87, 0.025);
+  border: 1px solid rgba(255, 200, 87, 0.08);
+}
+
+.helm-cloud-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.helm-cloud-category {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.helm-cloud-service {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--warning-amber);
+  opacity: 0.75;
+}
+
+.helm-cloud-note {
+  font-size: 10px;
+  color: var(--text-dark);
+}
+
+.helm-cloud-cost {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--warning-amber);
+  white-space: nowrap;
+}
+
+.helm-cloud-total-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 12px;
+  padding: 10px 14px;
+  background: rgba(255, 200, 87, 0.06);
+  border: 1px solid rgba(255, 200, 87, 0.22);
+  border-radius: var(--radius-sm);
+}
+
+.helm-cloud-total-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.helm-cloud-total-value {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--warning-amber);
+}
+
+/* Alert tracking */
+.helm-alert-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-left: 2px solid rgba(255, 90, 118, 0.35);
+  margin-bottom: 8px;
+}
+
+.helm-alert-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.helm-alert-type {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: var(--radius-capsule);
+  letter-spacing: 0.04em;
+}
+
+.helm-alert-p1 {
+  color: var(--danger-red);
+  background: var(--danger-red-soft);
+  border: 1px solid rgba(255, 90, 118, 0.2);
+}
+
+.helm-alert-p2 {
+  color: var(--warning-amber);
+  background: var(--warning-amber-soft);
+  border: 1px solid rgba(255, 200, 87, 0.2);
+  border-left-color: rgba(255, 200, 87, 0.35);
+}
+
+.helm-alert-item .helm-alert-p2 ~ * {
+  border-left-color: rgba(255, 200, 87, 0.35);
+}
+
+.helm-alert-agent {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+.helm-alert-driver {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.helm-alert-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.helm-alert-cost {
+  font-size: 10px;
+  color: var(--text-dark);
+  font-family: var(--font-mono);
+}
+
+.helm-alert-time {
+  font-size: 10px;
+  color: var(--text-dark);
+}
+
+/* Recommendations */
+.helm-rec-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: rgba(77, 216, 255, 0.02);
+  border: 1px solid rgba(77, 216, 255, 0.08);
+  border-left: 2px solid rgba(77, 216, 255, 0.28);
+  margin-bottom: 10px;
+}
+
+.helm-rec-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.helm-rec-issue {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.helm-rec-agent {
+  font-size: 10px;
+  color: var(--primary-cyan);
+  font-family: var(--font-mono);
+  background: var(--primary-cyan-soft);
+  padding: 2px 7px;
+  border-radius: var(--radius-capsule);
+  border: 1px solid rgba(77, 216, 255, 0.12);
+  white-space: nowrap;
+}
+
+.helm-rec-text {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+
+.helm-rec-impact {
+  align-self: flex-start;
+  font-size: 10px;
+  color: var(--success-emerald);
+  font-family: var(--font-mono);
+  background: var(--success-emerald-soft);
+  padding: 2px 8px;
+  border-radius: var(--radius-capsule);
+  border: 1px solid rgba(0, 245, 160, 0.14);
+}
+
+.helm-empty {
+  color: var(--text-dark);
+  font-size: 12px;
+  padding: 20px;
+  text-align: center;
+  border: 1px dashed rgba(255, 255, 255, 0.04);
+  border-radius: var(--radius-sm);
+}
+
 /* ── Responsive breakpoints ── */
 @media (max-width: 1200px) {
   .stats-row {
@@ -1605,6 +1995,13 @@ body {
   }
   .header-subtitle {
     display: none;
+  }
+  .helm-top-row,
+  .helm-bottom-row {
+    grid-template-columns: 1fr;
+  }
+  .helm-kpis {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 

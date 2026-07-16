@@ -219,6 +219,19 @@ def get_compliance(db: Session = Depends(get_db)):
 
 
 # ---------------------------------------------------------------------------
+# GET /helm/costs  — cost intelligence: real AI spend + recommendations
+# ---------------------------------------------------------------------------
+
+@app.get("/helm/costs")
+def helm_costs(db: Session = Depends(get_db)):
+    try:
+        from helm.helm import get_costs
+    except ImportError:
+        raise HTTPException(status_code=503, detail="Helm engine not available")
+    return get_costs(db)
+
+
+# ---------------------------------------------------------------------------
 # GET /  — health check
 # ---------------------------------------------------------------------------
 

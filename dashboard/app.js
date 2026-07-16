@@ -785,7 +785,8 @@ async function poll() {
   renderAlerts();
 
   if (state.selectedAgent) await loadChart(state.selectedAgent);
-  
+  await loadHelm();
+
   lucide.createIcons();
 }
 
@@ -846,6 +847,121 @@ function initControls() {
       link.click();
       document.body.removeChild(link);
     };
+  }
+}
+
+// ── Helm: Cost Intelligence ─────────────────────────────────────────────────
+
+async function loadHelm() {
+  const data = await apiFetch("/helm/costs");
+  if (!data) return;
+  renderHelm(data);
+}
+
+function renderHelm(data) {
+  const ts = data.total_spend || {};
+
+  setText("helm-total-all",   ts.all_time_usd != null ? fmt$(ts.all_time_usd) : "—");
+  setText("helm-total-today", ts.today_usd    != null ? fmt$(ts.today_usd)    : "—");
+  setText("helm-total-calls", ts.total_calls  != null ? ts.total_calls        : "—");
+  setText("helm-calls-today", ts.calls_today  != null ? ts.calls_today        : "—");
+
+  // By agent
+  const byAgentEl = document.getElementById("helm-by-agent");
+  if (byAgentEl) {
+    byAgentEl.innerHTML = (data.by_agent && data.by_agent.length)
+      ? data.by_agent.map(a => `
+          <div class="helm-row">
+            <span class="helm-row-name">${a.agent_name}</span>
+            <div class="helm-row-right">
+              <span class="helm-row-cost">${fmt$(a.total_cost_usd)}</span>
+              <span class="helm-row-sub">${a.call_count} calls · avg ${fmt$6(a.avg_cost_per_call)}/call</span>
+            </div>
+          </div>`).join("")
+      : `<div class="helm-empty">No agent data yet.</div>`;
+  }
+
+  // By model (with share bar)
+  const byModelEl = document.getElementById("helm-by-model");
+  if (byModelEl) {
+    byModelEl.innerHTML = (data.by_model && data.by_model.length)
+      ? data.by_model.map(m => `
+          <div class="helm-row">
+            <span class="helm-row-name helm-model-name">${m.model}</span>
+            <div class="helm-row-right">
+              <span class="helm-row-cost">${fmt$(m.total_cost_usd)}</span>
+              <span class="helm-row-sub">${m.call_count} calls · ${m.share_percent}% of total</span>
+            </div>
+            <div class="helm-share-bar"><div class="helm-share-fill" style="width:${Math.min(m.share_percent,100)}%"></div></div>
+          </div>`).join("")
+      : `<div class="helm-empty">No model data yet.</div>`;
+  }
+
+  // Illustrative cloud infra
+  const cloud = data.cloud_infra_cost;
+  if (cloud && cloud.monthly_usd) {
+    const cloudTableEl = document.getElementById("helm-cloud-table");
+    if (cloudTableEl) {
+      cloudTableEl.innerHTML = Object.entries(cloud.monthly_usd).map(([key, v]) => `
+        <div class="helm-cloud-row">
+          <div class="helm-cloud-left">
+            <span class="helm-cloud-category">${key.charAt(0).toUpperCase() + key.slice(1)}</span>
+            <span class="helm-cloud-service">${v.service}</span>
+            <span class="helm-cloud-note">${v.note}</span>
+          </div>
+          <span class="helm-cloud-cost">$${v.cost_usd.toFixed(2)}/mo</span>
+        </div>`).join("");
+    }
+    const cloudTotalEl = document.getElementById("helm-cloud-total");
+    if (cloudTotalEl) {
+      cloudTotalEl.innerHTML = `
+        <span class="helm-cloud-total-label">Est. Monthly Total</span>
+        <span class="helm-cloud-total-value">$${cloud.total_monthly_usd.toFixed(2)}/mo</span>`;
+    }
+  }
+
+  // Cost alert tracking
+  const costAlertsEl = document.getElementById("helm-cost-alerts");
+  if (costAlertsEl) {
+    if (!data.cost_alerts || !data.cost_alerts.length) {
+      costAlertsEl.innerHTML = `<div class="helm-empty">No cost alerts tracked yet.</div>`;
+    } else {
+      costAlertsEl.innerHTML = data.cost_alerts.map(a => {
+        const isP1    = a.alert_type === "budget_exceeded";
+        const typeLabel = isP1 ? "P1 · Budget Exceeded" : "P2 · Cost Spike";
+        const firedAgo  = a.fired_at ? timeAgo(a.fired_at) : "";
+        return `
+          <div class="helm-alert-item">
+            <div class="helm-alert-top">
+              <span class="helm-alert-type ${isP1 ? "helm-alert-p1" : "helm-alert-p2"}">${typeLabel}</span>
+              <span class="helm-alert-agent">${a.agent_name}</span>
+            </div>
+            <span class="helm-alert-driver">${a.driver_summary}</span>
+            <div class="helm-alert-meta">
+              <span class="helm-alert-cost">Cost at alert: $${a.cost_at_alert.toFixed(4)}</span>
+              ${firedAgo ? `<span class="helm-alert-time">${firedAgo}</span>` : ""}
+            </div>
+          </div>`;
+      }).join("");
+    }
+  }
+
+  // Recommendations (from static map)
+  const recsEl = document.getElementById("helm-recommendations");
+  if (recsEl) {
+    if (!data.recommendations || !data.recommendations.length) {
+      recsEl.innerHTML = `<div class="helm-empty">No issues detected — keep monitoring.</div>`;
+    } else {
+      recsEl.innerHTML = data.recommendations.map(r => `
+        <div class="helm-rec-card">
+          <div class="helm-rec-header">
+            <span class="helm-rec-issue">${r.issue}</span>
+            ${r.agent_name ? `<span class="helm-rec-agent">${r.agent_name}</span>` : ""}
+          </div>
+          <p class="helm-rec-text">${r.recommendation}</p>
+          <span class="helm-rec-impact">${r.est_impact}</span>
+        </div>`).join("");
+    }
   }
 }
 

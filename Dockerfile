@@ -18,6 +18,9 @@ COPY atlas/ ./atlas/
 # Copy Veritas engine (importable as veritas.veritas from /app/)
 COPY veritas/ ./veritas/
 
+# Copy Helm engine (importable as helm.helm from /app/)
+COPY helm/ ./helm/
+
 EXPOSE 8000
 
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
