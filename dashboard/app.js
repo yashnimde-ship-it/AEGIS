@@ -9,7 +9,6 @@ const state = {
   agentDetails:   {},
   timeRange:      "all",
   currentView:    "overview",
-  intervalId:     null,
 };
 
 // ── Immersive background particles ──────────────────────────────
@@ -703,14 +702,6 @@ function initControls() {
 // VIEW MANAGEMENT
 // ══════════════════════════════════════════════════════════════════
 
-const VIEW_INTERVALS = {
-  overview: 8000,
-  sentinel: 3000,
-  atlas:    5000,
-  veritas:  5000,
-  helm:     8000,
-};
-
 const VIEW_LABELS = {
   overview: "Overview",
   sentinel: "Sentinel · Agent Monitoring",
@@ -732,8 +723,6 @@ function getViewPollFn(name) {
 }
 
 function switchView(name) {
-  if (state.intervalId !== null) { clearInterval(state.intervalId); state.intervalId = null; }
-
   if (state.currentView === "sentinel" && name !== "sentinel" && state.chart) {
     state.chart.destroy();
     state.chart = null;
@@ -766,7 +755,15 @@ function switchView(name) {
 
   const pollFn = getViewPollFn(name);
   pollFn();
-  state.intervalId = setInterval(pollFn, VIEW_INTERVALS[name]);
+}
+
+function initRefreshBtn() {
+  const btn = document.getElementById("refresh-btn");
+  if (!btn) return;
+  btn.onclick = () => {
+    const fn = getViewPollFn(state.currentView);
+    fn();
+  };
 }
 
 function initNav() {
@@ -1000,6 +997,7 @@ async function pollHelm() {
 (async () => {
   initParticles();
   initNav();
+  initRefreshBtn();
   initControls();
   switchView("overview");
 })();
