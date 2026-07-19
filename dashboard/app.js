@@ -740,6 +740,9 @@ function switchView(name) {
   const labelEl = document.getElementById("current-view-label");
   if (labelEl) labelEl.textContent = VIEW_LABELS[name] || name;
 
+  const logoSub = document.getElementById("logo-sub-label");
+  if (logoSub) logoSub.textContent = name.toUpperCase();
+
   document.querySelectorAll(".nav-item[data-view]").forEach(item => {
     item.classList.toggle("active", item.dataset.view === name);
   });
