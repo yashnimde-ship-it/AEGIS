@@ -719,6 +719,14 @@ const VIEW_LABELS = {
   helm:     "Helm · Cost Intelligence",
 };
 
+const LOGO_ICONS = {
+  overview: { icon: "layout-dashboard", color: "" },
+  sentinel: { icon: "shield",           color: "var(--primary-cyan)" },
+  atlas:    { icon: "search",           color: "var(--primary-cyan)" },
+  veritas:  { icon: "scale",            color: "var(--warning-amber)" },
+  helm:     { icon: "trending-up",      color: "var(--success-emerald)" },
+};
+
 function getViewPollFn(name) {
   return { overview: pollOverview, sentinel: pollSentinel, atlas: pollAtlas, veritas: pollVeritas, helm: pollHelm }[name] || pollOverview;
 }
@@ -742,6 +750,13 @@ function switchView(name) {
 
   const logoSub = document.getElementById("logo-sub-label");
   if (logoSub) logoSub.textContent = name.toUpperCase();
+
+  const logoPod = document.querySelector(".logo-icon-pod");
+  if (logoPod) {
+    const { icon, color } = LOGO_ICONS[name] || LOGO_ICONS.overview;
+    logoPod.innerHTML = `<i data-lucide="${icon}" class="logo-icon"${color ? ` style="color:${color}"` : ""}></i>`;
+    lucide.createIcons();
+  }
 
   document.querySelectorAll(".nav-item[data-view]").forEach(item => {
     item.classList.toggle("active", item.dataset.view === name);
