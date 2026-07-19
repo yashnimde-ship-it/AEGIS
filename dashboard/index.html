@@ -16,34 +16,76 @@
   <!-- ── Apple Liquid Glass Background System ── -->
   <div class="liquid-bg-system">
     <div class="bg-gradient-base"></div>
-    
-    <!-- Morphing Fluid Glass Blobs -->
     <div class="fluid-blob blob-cyan"></div>
     <div class="fluid-blob blob-purple"></div>
     <div class="fluid-blob blob-teal"></div>
     <div class="fluid-blob blob-lavender"></div>
-    
     <div class="bg-noise-overlay"></div>
     <div class="bg-grid-mesh"></div>
     <canvas id="particles-canvas"></canvas>
   </div>
 
   <div class="dashboard-container">
+
     <!-- ── Header Capsule ── -->
     <header class="header glass-capsule">
       <div class="header-inner">
-        <div class="logo">
-          <div class="logo-icon-pod">
-            <i data-lucide="shield" class="logo-icon"></i>
-          </div>
-          <div class="logo-wordmark">
-            <span class="logo-text">AEGIS</span>
-            <span class="logo-sub">SENTINEL</span>
+
+        <!-- Logo + Navigation Dropdown -->
+        <div class="header-logo-nav">
+          <button class="logo nav-trigger" id="nav-trigger" aria-expanded="false" aria-haspopup="true">
+            <div class="logo-icon-pod">
+              <i data-lucide="shield" class="logo-icon"></i>
+            </div>
+            <div class="logo-wordmark">
+              <span class="logo-text">AEGIS</span>
+              <span class="logo-sub">SENTINEL</span>
+            </div>
+            <i data-lucide="chevron-down" class="nav-chevron"></i>
+          </button>
+
+          <div class="nav-dropdown" id="nav-dropdown" role="menu">
+            <div class="nav-item active" role="menuitem" data-view="overview">
+              <i data-lucide="layout-dashboard" class="nav-item-icon"></i>
+              <div class="nav-item-text">
+                <span class="nav-item-name">Overview</span>
+                <span class="nav-item-desc">All engines at a glance</span>
+              </div>
+            </div>
+            <div class="nav-divider"></div>
+            <div class="nav-item" role="menuitem" data-view="sentinel">
+              <i data-lucide="shield" class="nav-item-icon nav-icon-sentinel"></i>
+              <div class="nav-item-text">
+                <span class="nav-item-name">Sentinel</span>
+                <span class="nav-item-desc">Agents · budget · circuit breaker</span>
+              </div>
+            </div>
+            <div class="nav-item" role="menuitem" data-view="atlas">
+              <i data-lucide="hexagon" class="nav-item-icon nav-icon-atlas"></i>
+              <div class="nav-item-text">
+                <span class="nav-item-name">Atlas</span>
+                <span class="nav-item-desc">Incident explanations · Groq AI</span>
+              </div>
+            </div>
+            <div class="nav-item" role="menuitem" data-view="veritas">
+              <i data-lucide="scale" class="nav-item-icon nav-icon-veritas"></i>
+              <div class="nav-item-text">
+                <span class="nav-item-name">Veritas</span>
+                <span class="nav-item-desc">Compliance · PII · regulations</span>
+              </div>
+            </div>
+            <div class="nav-item" role="menuitem" data-view="helm">
+              <i data-lucide="compass" class="nav-item-icon nav-icon-helm"></i>
+              <div class="nav-item-text">
+                <span class="nav-item-name">Helm</span>
+                <span class="nav-item-desc">Cost intelligence · recommendations</span>
+              </div>
+            </div>
           </div>
         </div>
-        
+
         <div class="header-center">
-          <span class="header-subtitle">AI Agent Monitoring &amp; Cost Intelligence &middot; Live on Render</span>
+          <span id="current-view-label" class="current-view-label">Overview</span>
         </div>
 
         <div class="header-right">
@@ -62,157 +104,276 @@
     <!-- ── Page Workspace ── -->
     <main class="page-workspace">
 
-      <!-- Stats row -->
-      <div class="stats-row">
-        
-        <!-- Agents Monitored -->
-        <div class="stat-panel cyan" id="kpi-agents">
-          <div class="stat-panel-inner">
-            <div class="stat-content">
-              <span class="stat-label">Agents Monitored</span>
-              <div class="stat-value-row">
-                <div class="stat-value" id="stat-agents" data-target="0">—</div>
-                <div class="trend-capsule cyan">
-                  <i data-lucide="bot"></i>
-                  <span>Active</span>
+      <!-- ═══════════════════════════════════
+           VIEW: OVERVIEW (default)
+      ═══════════════════════════════════ -->
+      <div class="view active" id="view-overview">
+        <div class="overview-header">
+          <h2 class="overview-title">System Overview</h2>
+          <p class="overview-subtitle">Live status across all four engines — click any card to open.</p>
+        </div>
+        <div class="overview-grid">
+
+          <div class="ov-card ov-sentinel" onclick="switchView('sentinel')">
+            <div class="ov-engine-tag">
+              <span class="ov-engine-icon"><i data-lucide="shield"></i></span>
+              <div>
+                <span class="ov-engine-name">Sentinel</span>
+                <span class="ov-engine-desc">Agent monitoring · circuit breaker</span>
+              </div>
+            </div>
+            <div class="ov-metrics">
+              <div class="ov-metric">
+                <span class="ov-metric-val" id="ov-agents">—</span>
+                <span class="ov-metric-lbl">Agents</span>
+              </div>
+              <div class="ov-metric">
+                <span class="ov-metric-val ov-val-red" id="ov-p1">—</span>
+                <span class="ov-metric-lbl">P1 Alerts</span>
+              </div>
+              <div class="ov-metric">
+                <span class="ov-metric-val" id="ov-cost-today">—</span>
+                <span class="ov-metric-lbl">Cost Today</span>
+              </div>
+            </div>
+            <div class="ov-cta">Open Sentinel <i data-lucide="arrow-right" class="ov-cta-icon"></i></div>
+          </div>
+
+          <div class="ov-card ov-atlas" onclick="switchView('atlas')">
+            <div class="ov-engine-tag">
+              <span class="ov-engine-icon ov-icon-atlas"><i data-lucide="hexagon"></i></span>
+              <div>
+                <span class="ov-engine-name">Atlas</span>
+                <span class="ov-engine-desc">Incident explanations · Groq AI</span>
+              </div>
+            </div>
+            <div class="ov-metrics">
+              <div class="ov-metric">
+                <span class="ov-metric-val" id="ov-atlas-count">—</span>
+                <span class="ov-metric-lbl">Analyzed</span>
+              </div>
+              <div class="ov-metric">
+                <span class="ov-metric-val" id="ov-atlas-conf">—</span>
+                <span class="ov-metric-lbl">Last Confidence</span>
+              </div>
+            </div>
+            <div class="ov-cta">Open Atlas <i data-lucide="arrow-right" class="ov-cta-icon"></i></div>
+          </div>
+
+          <div class="ov-card ov-veritas" onclick="switchView('veritas')">
+            <div class="ov-engine-tag">
+              <span class="ov-engine-icon ov-icon-veritas"><i data-lucide="scale"></i></span>
+              <div>
+                <span class="ov-engine-name">Veritas</span>
+                <span class="ov-engine-desc">DPDPA · EU AI Act · PII detection</span>
+              </div>
+            </div>
+            <div class="ov-metrics">
+              <div class="ov-metric">
+                <span class="ov-metric-val ov-val-green" id="ov-compliant">—</span>
+                <span class="ov-metric-lbl">Compliant</span>
+              </div>
+              <div class="ov-metric">
+                <span class="ov-metric-val ov-val-amber" id="ov-warnings">—</span>
+                <span class="ov-metric-lbl">Warnings</span>
+              </div>
+              <div class="ov-metric">
+                <span class="ov-metric-val ov-val-red" id="ov-violations">—</span>
+                <span class="ov-metric-lbl">Violations</span>
+              </div>
+            </div>
+            <div class="ov-cta">Open Veritas <i data-lucide="arrow-right" class="ov-cta-icon"></i></div>
+          </div>
+
+          <div class="ov-card ov-helm" onclick="switchView('helm')">
+            <div class="ov-engine-tag">
+              <span class="ov-engine-icon ov-icon-helm"><i data-lucide="compass"></i></span>
+              <div>
+                <span class="ov-engine-name">Helm</span>
+                <span class="ov-engine-desc">Cost intelligence · rules-based</span>
+              </div>
+            </div>
+            <div class="ov-metrics">
+              <div class="ov-metric">
+                <span class="ov-metric-val" id="ov-spend">—</span>
+                <span class="ov-metric-lbl">All-Time Spend</span>
+              </div>
+              <div class="ov-metric">
+                <span class="ov-metric-val ov-val-red" id="ov-leaks">—</span>
+                <span class="ov-metric-lbl">Cost Leaks</span>
+              </div>
+            </div>
+            <div class="ov-cta">Open Helm <i data-lucide="arrow-right" class="ov-cta-icon"></i></div>
+          </div>
+
+        </div>
+      </div><!-- /view-overview -->
+
+      <!-- ═══════════════════════════════════
+           VIEW: SENTINEL
+      ═══════════════════════════════════ -->
+      <div class="view" id="view-sentinel">
+
+        <div class="stats-row">
+          <div class="stat-panel cyan" id="kpi-agents">
+            <div class="stat-panel-inner">
+              <div class="stat-content">
+                <span class="stat-label">Agents Monitored</span>
+                <div class="stat-value-row">
+                  <div class="stat-value" id="stat-agents">—</div>
+                  <div class="trend-capsule cyan"><i data-lucide="bot"></i><span>Active</span></div>
+                </div>
+              </div>
+              <div class="icon-pod cyan"><i data-lucide="cpu" class="pod-icon"></i></div>
+            </div>
+            <div class="stat-footer-text">Registered AI agent instances</div>
+          </div>
+
+          <div class="stat-panel emerald" id="kpi-cost">
+            <div class="stat-panel-inner">
+              <div class="stat-content">
+                <span class="stat-label">Cost Today</span>
+                <div class="stat-value-row">
+                  <div class="stat-value" id="stat-cost">—</div>
+                  <div class="trend-capsule emerald"><i data-lucide="trending-up"></i><span>+3.2%</span></div>
+                </div>
+              </div>
+              <div class="icon-pod emerald"><i data-lucide="credit-card" class="pod-icon"></i></div>
+            </div>
+            <div class="stat-footer-text">USD budget usage today</div>
+          </div>
+
+          <div class="stat-panel blue" id="kpi-calls">
+            <div class="stat-panel-inner">
+              <div class="stat-content">
+                <span class="stat-label">Calls Today</span>
+                <div class="stat-value-row">
+                  <div class="stat-value" id="stat-calls">—</div>
+                  <div class="trend-capsule blue"><i data-lucide="activity"></i><span>+18.4%</span></div>
+                </div>
+              </div>
+              <div class="icon-pod blue"><i data-lucide="zap" class="pod-icon"></i></div>
+            </div>
+            <div class="stat-footer-text">Total LLM API calls executed</div>
+          </div>
+
+          <div class="stat-panel red" id="kpi-alerts">
+            <div class="stat-panel-inner">
+              <div class="stat-content">
+                <span class="stat-label">Active Alerts</span>
+                <div class="stat-value-row">
+                  <div class="stat-value" id="stat-alerts-val">—</div>
+                  <div class="trend-capsule red pulse-alert"><i data-lucide="alert-octagon"></i><span>Breached</span></div>
+                </div>
+              </div>
+              <div class="icon-pod red"><i data-lucide="alert-triangle" class="pod-icon"></i></div>
+            </div>
+            <div class="stat-footer-text">P1 budget breaches today</div>
+          </div>
+        </div>
+
+        <div class="section-container">
+          <div class="section-title-bar">
+            <div class="section-heading">
+              <span class="heading-dot"></span>
+              <span>SYSTEM AGENTS</span>
+            </div>
+            <span class="section-description"><i data-lucide="info"></i> Click a module to view cost analysis and trace logs</span>
+          </div>
+          <div class="agents-grid" id="agents-grid">
+            <div class="empty-state">Loading agents…</div>
+          </div>
+        </div>
+
+        <div class="split-view">
+          <div class="glass-panel chart-panel">
+            <div class="panel-header-bar">
+              <span class="panel-heading"><span class="heading-dot"></span><span>Cost Timeline</span></span>
+              <div class="panel-controls">
+                <span class="capsule-badge blue-glow" id="chart-agent-label">select an agent</span>
+                <div class="capsule-selector">
+                  <button class="capsule-btn active" data-range="all">ALL</button>
+                  <button class="capsule-btn" data-range="24h">24H</button>
+                  <button class="capsule-btn" data-range="1h">1H</button>
+                </div>
+                <button class="capsule-action-btn" id="export-chart-btn" title="Export events to CSV">
+                  <i data-lucide="download"></i><span>Export</span>
+                </button>
+              </div>
+            </div>
+            <div class="chart-content-wrap">
+              <canvas id="cost-chart"></canvas>
+              <div class="chart-empty-overlay" id="chart-empty">
+                <div class="chart-empty-content">
+                  <i data-lucide="line-chart" class="empty-icon"></i>
+                  <span>Select an agent above to display cost timeline</span>
                 </div>
               </div>
             </div>
-            <div class="icon-pod cyan">
-              <i data-lucide="cpu" class="pod-icon"></i>
+          </div>
+
+          <div class="glass-panel alerts-panel">
+            <div class="panel-header-bar">
+              <span class="panel-heading"><span class="heading-dot"></span><span>Alerts Feed</span></span>
+              <span class="capsule-badge red-glow" id="alerts-count">0</span>
+            </div>
+            <div class="alerts-list" id="alerts-list">
+              <div class="empty-state">No alerts — all agents within budget.</div>
             </div>
           </div>
-          <div class="stat-footer-text">Registered AI agent instances</div>
         </div>
 
-        <!-- Cost Today -->
-        <div class="stat-panel emerald" id="kpi-cost">
-          <div class="stat-panel-inner">
-            <div class="stat-content">
-              <span class="stat-label">Cost Today</span>
-              <div class="stat-value-row">
-                <div class="stat-value" id="stat-cost" data-target="0">—</div>
-                <div class="trend-capsule emerald">
-                  <i data-lucide="trending-up"></i>
-                  <span>+3.2%</span>
-                </div>
-              </div>
-            </div>
-            <div class="icon-pod emerald">
-              <i data-lucide="credit-card" class="pod-icon"></i>
-            </div>
-          </div>
-          <div class="stat-footer-text">USD budget usage today</div>
-        </div>
+      </div><!-- /view-sentinel -->
 
-        <!-- Calls Today -->
-        <div class="stat-panel blue" id="kpi-calls">
-          <div class="stat-panel-inner">
-            <div class="stat-content">
-              <span class="stat-label">Calls Today</span>
-              <div class="stat-value-row">
-                <div class="stat-value" id="stat-calls" data-target="0">—</div>
-                <div class="trend-capsule blue">
-                  <i data-lucide="activity"></i>
-                  <span>+18.4%</span>
-                </div>
-              </div>
-            </div>
-            <div class="icon-pod blue">
-              <i data-lucide="zap" class="pod-icon"></i>
-            </div>
-          </div>
-          <div class="stat-footer-text">Total LLM API calls executed</div>
-        </div>
-
-        <!-- Active Alerts -->
-        <div class="stat-panel red" id="kpi-alerts">
-          <div class="stat-panel-inner">
-            <div class="stat-content">
-              <span class="stat-label">Active Alerts</span>
-              <div class="stat-value-row">
-                <div class="stat-value" id="stat-alerts-val" data-target="0">—</div>
-                <div class="trend-capsule red pulse-alert">
-                  <i data-lucide="alert-octagon"></i>
-                  <span>Breached</span>
-                </div>
-              </div>
-            </div>
-            <div class="icon-pod red">
-              <i data-lucide="alert-triangle" class="pod-icon"></i>
-            </div>
-          </div>
-          <div class="stat-footer-text">P1 budget breaches today</div>
-        </div>
-
-      </div>
-
-      <!-- Agents Grid Section -->
-      <div class="section-container">
+      <!-- ═══════════════════════════════════
+           VIEW: ATLAS
+      ═══════════════════════════════════ -->
+      <div class="view" id="view-atlas">
         <div class="section-title-bar">
           <div class="section-heading">
             <span class="heading-dot"></span>
-            <span>SYSTEM AGENTS</span>
+            <span>INCIDENT EXPLANATIONS</span>
           </div>
-          <span class="section-description"><i data-lucide="info"></i> Click a module to view cost analysis and trace logs</span>
+          <span class="section-description"><i data-lucide="hexagon"></i> Atlas engine · Groq-powered · pattern-matched root cause</span>
         </div>
-        <div class="agents-grid" id="agents-grid">
-          <div class="empty-state">Loading agents…</div>
+        <div class="atlas-stats-bar">
+          <span class="atlas-analyzed-chip" id="atlas-analyzed-count">Loading…</span>
         </div>
+        <div id="atlas-feed" class="atlas-feed"></div>
       </div>
 
-      <!-- Chart + Alerts Immersive Split -->
-      <div class="split-view">
-
-        <!-- Cost Timeline Panel -->
-        <div class="glass-panel chart-panel">
-          <div class="panel-header-bar">
-            <span class="panel-heading">
-              <span class="heading-dot"></span>
-              <span>Cost Timeline</span>
-            </span>
-            <div class="panel-controls">
-              <span class="capsule-badge blue-glow" id="chart-agent-label">select an agent</span>
-              <div class="capsule-selector">
-                <button class="capsule-btn active" data-range="all">ALL</button>
-                <button class="capsule-btn" data-range="24h">24H</button>
-                <button class="capsule-btn" data-range="1h">1H</button>
-              </div>
-              <button class="capsule-action-btn" id="export-chart-btn" title="Export events to CSV">
-                <i data-lucide="download"></i>
-                <span>Export</span>
-              </button>
-            </div>
+      <!-- ═══════════════════════════════════
+           VIEW: VERITAS
+      ═══════════════════════════════════ -->
+      <div class="view" id="view-veritas">
+        <div class="section-title-bar">
+          <div class="section-heading">
+            <span class="heading-dot helm-heading-dot"></span>
+            <span>COMPLIANCE &amp; PII</span>
           </div>
-          <div class="chart-content-wrap">
-            <canvas id="cost-chart"></canvas>
-            <div class="chart-empty-overlay" id="chart-empty">
-              <div class="chart-empty-content">
-                <i data-lucide="line-chart" class="empty-icon"></i>
-                <span>Select an agent above to display cost timeline</span>
-              </div>
-            </div>
+          <span class="section-description"><i data-lucide="scale"></i> Veritas engine · DPDPA · EU AI Act · rules-based</span>
+        </div>
+        <div class="glass-panel">
+          <div class="panel-header-bar">
+            <span class="panel-heading"><span class="heading-dot helm-heading-dot"></span><span>Compliance Summary</span></span>
+          </div>
+          <div id="veritas-compliance-body" class="veritas-compliance-body">
+            <div class="helm-empty">Loading compliance data…</div>
           </div>
         </div>
-
-        <!-- Alerts Feed Panel -->
-        <div class="glass-panel alerts-panel">
-          <div class="panel-header-bar">
-            <span class="panel-heading">
-              <span class="heading-dot"></span>
-              <span>Alerts Feed</span>
-            </span>
-            <span class="capsule-badge red-glow" id="alerts-count">0</span>
-          </div>
-          <div class="alerts-list" id="alerts-list">
-            <div class="empty-state">No alerts — all agents within budget.</div>
+        <div class="section-title-bar" style="margin-top:4px">
+          <div class="section-heading" style="font-size:11px">
+            <span class="heading-dot helm-heading-dot" style="width:5px;height:5px"></span>
+            <span>PER-ALERT VERDICTS</span>
           </div>
         </div>
-
+        <div id="veritas-feed" class="veritas-feed"></div>
       </div>
 
-      <!-- ── Helm: Cost Intelligence Panel ── -->
-      <div class="section-container">
+      <!-- ═══════════════════════════════════
+           VIEW: HELM
+      ═══════════════════════════════════ -->
+      <div class="view" id="view-helm">
         <div class="section-title-bar">
           <div class="section-heading">
             <span class="heading-dot helm-heading-dot"></span>
@@ -221,10 +382,7 @@
           <span class="section-description"><i data-lucide="compass"></i> Helm engine · Real AI spend · Rules-based, no LLM</span>
         </div>
 
-        <!-- Top row: Real AI spend (left) + Illustrative cloud infra (right) -->
         <div class="helm-top-row">
-
-          <!-- AI Spend Panel -->
           <div class="glass-panel helm-spend-panel">
             <div class="panel-header-bar">
               <span class="panel-heading"><span class="heading-dot"></span><span>AI Spend</span></span>
@@ -242,47 +400,39 @@
             <div id="helm-by-model" class="helm-table"></div>
           </div>
 
-          <!-- Cloud Infra Cost Panel (Illustrative) -->
           <div class="glass-panel helm-cloud-panel">
             <div class="panel-header-bar">
               <span class="panel-heading"><span class="heading-dot"></span><span>Cloud Infra Cost</span></span>
               <span class="helm-illustrative-badge">⚠ Illustrative</span>
             </div>
-            <p class="helm-illustrative-note">Representative production-scale estimates — not real billing data.</p>
-            <div id="helm-cloud-table" class="helm-cloud-table"></div>
-            <div class="helm-cloud-total-row" id="helm-cloud-total"></div>
+            <p class="helm-illustrative-note" style="margin:6px 16px 12px">Representative production-scale estimates — not real billing data.</p>
+            <div id="helm-cloud-table" class="helm-cloud-table" style="padding:0 16px"></div>
+            <div class="helm-cloud-total-row" id="helm-cloud-total" style="margin:12px 16px 16px"></div>
           </div>
-
         </div>
 
-        <!-- Bottom row: Alert tracking (left) + Recommendations (right) -->
         <div class="helm-bottom-row">
-
-          <!-- Cost Alert Tracking -->
           <div class="glass-panel">
             <div class="panel-header-bar">
               <span class="panel-heading"><span class="heading-dot"></span><span>Alert Tracking</span></span>
               <span class="section-description">Cost driver attribution</span>
             </div>
-            <div id="helm-cost-alerts"></div>
+            <div id="helm-cost-alerts" class="helm-panel-body"></div>
           </div>
-
-          <!-- Optimization Recommendations -->
           <div class="glass-panel">
             <div class="panel-header-bar">
               <span class="panel-heading"><span class="heading-dot"></span><span>Optimization Recommendations</span></span>
               <span class="section-description">Rules-based · not generated</span>
             </div>
-            <div id="helm-recommendations"></div>
+            <div id="helm-recommendations" class="helm-panel-body"></div>
           </div>
-
         </div>
-      </div>
+      </div><!-- /view-helm -->
 
     </main>
   </div>
 
-  <!-- ── Event Detail Modal (Floating Inspector Window) ── -->
+  <!-- ── Event Detail Modal ── -->
   <div class="modal-overlay" id="modal-overlay" onclick="closeModal()">
     <div class="modal-window glass" onclick="event.stopPropagation()">
       <div class="modal-header-bar">
